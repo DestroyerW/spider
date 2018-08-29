@@ -21,8 +21,8 @@ driver.switch_to.frame(driver.find_element_by_css_selector('iframe'))
 
 
 driver.find_element_by_class_name('tx1').clear()
-driver.find_element_by_id('txt_asmcdefsddsd').send_keys('201505040152')
-driver.find_element_by_id('txt_pewerwedsdfsdff').send_keys('Devil2233')
+driver.find_element_by_id('txt_asmcdefsddsd').send_keys('账号')
+driver.find_element_by_id('txt_pewerwedsdfsdff').send_keys('密码')
 driver.find_element_by_id('txt_pewerwedsdfsdff').send_keys(Keys.TAB)
 captcha = driver.find_element_by_id('imgCode')
 captcha.screenshot('getimage.png')
