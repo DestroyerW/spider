@@ -1,0 +1,126 @@
+# -*- coding: utf-8 -*-
+__FileName__ = 'eleme'
+__Author__ = 'Liter WU'
+__Time__ = '2018/8/21 14:07'
+
+import requests
+import json
+import xlwt
+
+
+class Eleme(object):
+
+    def __init__(self):
+
+        self.url = 'https://www.ele.me/restapi/shopping/restaurants?extras[]=activities&geohash=ww0vkmgmcjyt&latitude=34.705456&limit=24&longitude=113.74597&offset=0&terminal=web'
+        self.headers = {
+            'User-Agent': '"Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:52.0) Gecko/20100101 Firefox/52.0"',
+
+        }
+        self.json = ''
+        self.p = 24
+        self.workbook = xlwt.Workbook(encoding='utf-8')
+        self.sheet = self.workbook.add_sheet('eleme')
+        self.create_excel()
+
+        self.name = ''
+        self.rating = ''
+        self.float_delivery_fee = ''
+        self.order_lead_time = ''
+        self.count = 0
+
+    def create_excel(self):
+
+        self.sheet.write(0, 0, '店铺名称')
+        self.sheet.write(0, 1, '店铺评分')
+        self.sheet.write(0, 2, '配送费')
+        self.sheet.write(0, 3, '用时')
+        self.sheet.write(0, 4, '食物名称')
+        self.sheet.write(0, 5, '描述')
+        self.sheet.write(0, 6, '评分')
+        self.sheet.write(0, 7, '评分人数')
+        self.sheet.write(0, 8, '月销')
+        self.sheet.write(0, 9, '价格')
+
+    def get_json(self):
+
+        response = requests.get(url=self.url, headers=self.headers)
+        response = response.content.decode('utf-8')
+        self.json = json.loads(response)
+
+        self.id = ''
+
+    def parse_json(self):
+
+        array = self.json
+        for x in array:
+            self.name = x['name']
+            print('*'*70)
+            print('正在爬取%s' % self.name)
+            self.id = x['id']
+            self.rating = x['rating']
+            self.float_delivery_fee = x['float_delivery_fee']
+            self.order_lead_time = x['order_lead_time']
+            # print(self.name, self.id, self.rating, self.float_delivery_fee, self.order_lead_time)
+            self.url = 'https://www.ele.me/restapi/shopping/v2/menu?restaurant_id={}&terminal=web'.format(str(self.id))
+            self.detail_json()
+
+        if self.p == 480:
+
+            print('没有更多数据了')
+
+        else:
+            self.url = 'https://www.ele.me/restapi/shopping/restaurants?extras[]=activities&geohash=ww0vkmgmcjyt&latitude=34.705456&limit=24&longitude=113.74597&offset={}&terminal=web'.format(
+                self.p)
+            self.get_json()
+            self.parse_json()
+            self.p += 24
+
+    def detail_json(self):
+
+        self.get_json()
+        for x in self.json:
+            name = x['name']
+            description = x['description']
+            print('-'*50)
+            # print(name, description)
+            for i in x['foods']:
+                if len(i['attributes']) > 0:
+                    f_attributes = i['attributes'][0]['icon_name']
+                    # print(f_attributes)
+                f_name = i['name']
+                f_des = i['description']
+                f_rating = i['rating']
+                f_rating_count = i['rating_count']
+                f_month_sales = i['month_sales']
+                f_price = i['specfoods'][0]['price']
+
+                # print(f_name, f_des, f_rating, f_rating_count, f_month_sales, f_price)
+
+                self.save_to_excel(self.name, self.rating, self.float_delivery_fee, self.order_lead_time, f_name, f_des, f_rating, f_rating_count, f_month_sales, f_price)
+
+    def write_to_excel(self, idx, data):
+
+        # print(idx, data)
+        self.sheet.write(self.count, idx, data)
+
+    def save_to_excel(self, *args):
+
+        self.count += 1
+
+        print('正在保存{}店铺的：{}'.format(args[0], args[4]))
+
+        for idx, data in enumerate(args):
+            self.write_to_excel(idx, data)
+
+        self.workbook.save('elem.xls')
+
+    def run(self):
+
+        self.get_json()
+        self.parse_json()
+
+
+if __name__ == '__main__':
+    p = Eleme()
+    p.run()
