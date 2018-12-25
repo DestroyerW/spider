@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+__FileName__ = 'splid'
+__Author__ = 'Liter WU'
+__Time__ = '2018/8/13 15:49'
+
+from bs4 import BeautifulSoup
+from urllib import request
+from random import choice
+import os
+
+
+class TTpic(object):
+
+    def __init__(self):
+        self.url = 'http://www.ivsky.com/tupian/ziranfengguang/'
+        self.ua_list = [
+            'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/68.0.3440.106 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/534.57.2 (KHTML, like Gecko) Version/5.1.7 Safari/534.57.2',
+            'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/38.0.2125.122 UBrowser/4.0.3214.0 Safari/537.36'
+        ]
+        self.html = ''
+        self.title = ''
+        self.count = 0
+        self.retry_count = 0
+
+    def get_html(self, url):
+
+        req = request.Request(url=url, headers={
+            'User-Agent': choice(self.ua_list)
+        })
+        try:
+            self.retry_count += 1
+            response = request.urlopen(req)
+            self.html = response.read().decode('utf-8')
+        except Exception as e:
+            # 请求重试次数大于3，放弃该请求
+            if self.retry_count > 3:
+                print('请求失败，地址：{}'.format(url))
+                return
+            # 重新发送请求
+            print('请求数据失败，正在尝试重新连接...')
+            self.get_html(url)
+        else:
+            self.retry_count = 0
+
+    def parse_html(self):
+
+        bs = BeautifulSoup(self.html, 'lxml')
+        # print(type(bs))
+        rs = bs.select(".ali li div a")
+
+        # print(rs)
+        for x in rs:
+            link = x.attrs['href']
+            title = x.attrs['title']
+            # print(y)
+            self.url = 'http://www.ivsky.com' + link
+            self.title = title
+            print('正在爬去的图片集是{}\n地址是{}'.format(self.title, self.url))
+
+            if not os.path.exists(self.title):
+                # 创建文件夹
+                os.mkdir(self.title)
+
+            self.get_html(self.url)
+            bs_p = BeautifulSoup(self.html, 'lxml')
+            rs_p = bs_p.select('.pli img')
+            # print(rs_p)
+            for i in rs_p:
+                img = i.attrs['src']
+                # print(img)
+                img_link = img.replace('/t/', '/pre/')
+                # print(img_link)
+                self.count += 1
+                print('正在下载第%s张图片，请稍后....' % self.count)
+                img_name = img_link.split('/')[-1]
+                # print(img_name)
+                path = self.title + '/' + '%s' % img_name
+                request.urlretrieve(img_link, path)
+
+    def run(self):
+
+        # self.get_html(self.url)
+        # bs = BeautifulSoup(self.html, 'lxml')
+        # rs = bs.select(".pagelist a")
+        # print(rs)
+        for p in range(1, 11):
+
+            url = 'http://www.ivsky.com/tupian/ziranfengguang/index_{}.html'.format(p)
+            print('正在爬取第{}页，地址为 {}'.format(p, url))
+            self.get_html(url)
+            self.parse_html()
+
+
+p = TTpic()
+p.run()
