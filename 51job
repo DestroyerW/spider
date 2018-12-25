@@ -1,0 +1,97 @@
+# -*- coding: utf-8 -*-
+__FileName__ = '51job'
+__Author__ = 'Liter WU'
+__Time__ = '2018/8/8 16:51'
+
+from urllib import request
+import re
+import sqlite3
+
+
+class Collect_Job(object):
+
+    def __init__(self):
+
+        self.conn = None
+        self.cursor = None
+        self.url = 'https://search.51job.com/list/010000%252C020000%252C030200%252C040000%252C080200,000000,0000,00,9,99,python,2,1.html'
+        self.html = ''
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:52.0) Gecko/20100101 Firefox/52.0'
+        }
+        self.title = ''
+        self.total = 0
+        self.select = 'job'
+        self.create_table()
+
+
+    def conn_db(self):
+
+        self.conn = sqlite3.connect('51jb.db')
+        self.cursor = self.conn.cursor()
+
+    def close_db(self):
+
+        self.conn.commit()
+        self.cursor.close()
+        self.conn.close()
+
+    def create_table(self):
+
+        self.conn_db()
+        sql = "CREATE TABLE IF NOT EXISTS job(id integer PRIMARY KEY, post CHAR , company CHAR , pos CHAR , salary CHAR, date CHAR)".format(self.select)
+        self.cursor.execute(sql)
+        self.close_db()
+
+    def get_html(self, url):
+
+        req = request.Request(url=url, headers=self.headers)
+        response = request.urlopen(req)
+        self.html = response.read().decode('gbk', 'ignore')
+
+    def parse_html(self):
+
+        pattern = re.compile(r'<div class="el">.*?<span>.*?title="(.*?)".*?<span class="t2"><a.*?>(.*?)<.*?<span class="t3">(.*?)<.*?<span class="t4">(.*?)<.*?<span class="t5">(.*?)<', re.S)
+        rs = re.findall(pattern, self.html)
+
+        for x in rs:
+
+            # print(x)
+            post = x[0]
+            company = x[1]
+            position = x[2]
+            salary = x[3]
+            date = x[4]
+            self.save_data(post, company, position, salary, date)
+
+    def save_data(self, *args):
+
+        self.conn_db()
+        insert_sql = "INSERT INTO job(post,company, pos, salary, date)VALUES('%s','%s','%s','%s','%s')" % args
+        self.cursor.execute(insert_sql)
+        self.close_db()
+
+    def title_total(self):
+
+        pat = re.compile(r'<div class="dw_choice">.*?<span class="title".*?<p>(.*?)</p>.*?<span class="dw_c_orange">1</span> / (.*?)<', re.S)
+        rs = re.search(pat, self.html)
+        self.title = rs.group(1)
+        self.total = int(rs.group(2))
+        # print(self.title)
+        # print(self.total)
+
+    def run(self):
+        self.select = input('请输入查询职位:')
+        self.url = 'https://search.51job.com/list/010000%252C020000%252C030200%252C040000%252C080200,000000,0000,00,9,99,{},2,1.html'.format(self.select)
+        self.get_html(self.url)
+        self.title_total()
+        print('正在爬取：{}，共{}页，请稍后.....'.format(self.title, self.total))
+        for i in range(1, self.total+1):
+                print('正在爬去第%s页数据....' % i)
+                url = 'https://search.51job.com/list/010000%252C020000%252C030200%252C040000%252C080200,000000,0000,00,9,99,python,2,{}.html'.format(i)
+                self.get_html(url)
+                self.parse_html()
+
+
+p = Collect_Job()
+p.run()
