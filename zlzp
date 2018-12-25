@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+__FileName__ = 'zlzp'
+__Author__ = 'Liter WU'
+__Time__ = '2018/8/15 9:03'
+
+import requests
+import json
+import xlwt
+import sqlite3
+
+
+class ZL_spider(object):
+
+    def __init__(self):
+
+        self.url = 'https://fe-api.zhaopin.com/c/i/sou?pageSize=60&kw=python&kt=3'
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.87 Safari/537.36 OPR/37.0.2178.32'
+        }
+        self.json = ''
+        self.count = 0
+        self.num = 0
+        self.p = 1
+        self.retry = 0
+    
+        self.workbook = xlwt.Workbook(encoding='utf-8')
+        self.sheet = self.workbook.add_sheet('zl_data')
+
+    def get_json(self):
+
+        try:
+            self.retry += 1
+            response = requests.get(url=self.url, headers=self.headers)
+            self.json = response.json()
+
+        except Exception as e:
+            if self.retry > 3:
+                return
+            self.get_json()
+
+    def parse_json(self):
+
+        # print(self.json)
+        # print(type(self.json))
+        results = self.json['data']['results']
+        # print(results)
+        for x in results:
+            self.num += 1
+            number = x['number']
+            id_ = x['id']
+            display = x['jobType']['display']
+            company_n = x['company']['number']
+            company_id = x['company']['id']
+            company_url = x['company']['url']
+            company_name = x['company']['name']
+            company_size = x['company']['size']['name']
+            company_type = x['company']['type']['name']
+            positionURL = x['positionURL']
+            workingExp = x['workingExp']['name']
+            eduLevel = x['eduLevel']['name']
+            salary = x['salary']
+            emplType = x['emplType']
+            jobName = x['jobName']
+            geo_lat = x['geo']['lat']
+            geo_lon = x['geo']['lon']
+            city = x['city']['display']
+            updateDate = x['updateDate']
+            createDate = x['createDate']
+            endDate = x['endDate']
+            welfare = x['welfare']
+            score = x['score']
+            resumeCount = x['resumeCount']
+
+            print('\n正在爬取第%s个工作' % self.num)
+            print('职位编号：{}\n职位ID:{}\n职位种类：{}\n公司编号：{}\n公司ID：{}\n公司简介：{}\n公司名称：{}\n公司规模：{}\n公司性质：{}\n职位详情地址：{}\n工作经验要求：{}\n学历要求：{}\n职位薪资：{}\n职位类型：{}\n职位名称：{}\n公司所在经纬度：{} {}\n公司所在地：{}\n更新日期：{}\n创建日期：{}\n结束日期：{}\n福利：{}\n职位评分：{}\n投递简历个数：{}\n'.format(number, id_, display, company_n, company_id, company_url, company_name, company_size, company_type, positionURL, workingExp, eduLevel, salary, emplType, jobName, geo_lat, geo_lon, city, updateDate, createDate, endDate, welfare, score, resumeCount))
+            self.save_data(number, id_, display, company_n, company_id, company_url, company_name, company_size, company_type, positionURL, workingExp, eduLevel, salary, emplType, jobName, geo_lat, geo_lon, city, updateDate, createDate, endDate, welfare, score, resumeCount)
+
+        if results:
+            self. p += 1
+            self.url = 'https://fe-api.zhaopin.com/c/i/sou?pageSize={}&kw=python&kt=3'.format(60*self.p)
+            # print(self.url)
+            print('正在爬取第%s页,请稍后...\n' % self.p)
+            self.get_json()
+            self.parse_json()
+        else:
+            print('数据爬取完毕！')
+
+    def write_to_excel(self, idx, data):
+
+        self.sheet.write(self.count, idx, data)
+
+    def save_data(self, *args):
+
+        for idx, data in enumerate(args):
+
+            self.write_to_excel(idx, data)
+
+        self.workbook.save('智联招聘.xls')
+        self.count += 1
+
+        connect = sqlite3.connect('zl.db')
+        sql = "CREATE TABLE IF NOT EXISTS zlzp(id integer primary key ,number CHAR ,id_ CHAR, display CHAR, company_n CHAR,company_id char ,company_url CHAR,company_name char ,company_size char,company_type char,positionURL char,workingExp char,eduLevel char,salary char,emplType char,jobName char,geo_lat char,geo_lon char,city char,updateDate char,createDate char,endDate char,welfare char,score char,resumeCount char)"
+        cursor = connect.cursor()
+        cursor.execute(sql)
+        insert_sql = """insert into zlzp(number, id_, display, company_n, company_id, company_url, company_name, company_size, company_type, positionURL, workingExp, eduLevel, salary, emplType, jobName, geo_lat, geo_lon, city, updateDate, createDate, endDate, welfare, score, resumeCount)values("%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s")""" % args
+        cursor.execute(insert_sql)
+        connect.commit()
+
+        cursor.close()
+        connect.close()
+
+    def run(self):
+
+        select = input('请输入要爬取得职位名称:')
+        self.url = 'https://fe-api.zhaopin.com/c/i/sou?pageSize=60&kw={}&kt=3'.format(select)
+        self.get_json()
+        self.parse_json()
+
+
+if __name__ == '__main__':
+
+    p = ZL_spider()
+    p.run()
